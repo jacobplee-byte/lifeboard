@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Today">
+<meta name="theme-color" content="#FBF3E8">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Crect width='180' height='180' rx='40' fill='%23F4A261'/%3E%3Cpath d='M55 92 l22 22 l48-52' stroke='white' stroke-width='14' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<title>Today</title>
+<style>
+  :root {
+    --bg1: #FBF3E8; --bg2: #F7E9D7; --card: #FFFFFF;
+    --ink: #3D352E; --ink-soft: #9B8E80; --accent: #F4A261; --accent-deep: #E8895C;
+    --done: #C9BEB1; --shadow: rgba(180, 150, 120, 0.18); --line: #2E2823;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    color: var(--ink); background: linear-gradient(165deg, var(--bg1), var(--bg2)); background-attachment: fixed; }
+  body { display: flex; flex-direction: column; max-width: 560px; margin: 0 auto;
+    padding: env(safe-area-inset-top) 18px env(safe-area-inset-bottom); min-height: 100vh; }
+
+  header { display: flex; align-items: flex-end; justify-content: space-between; padding: 24px 4px 10px; }
+  .date { font-size: 13px; font-weight: 600; letter-spacing: 0.5px; color: var(--accent-deep); text-transform: uppercase; }
+  .greeting { font-size: 27px; font-weight: 700; margin: 3px 0 0; letter-spacing: -0.5px; }
+  .nav-btn { flex: 0 0 auto; width: 46px; height: 46px; border-radius: 14px; border: none;
+    background: var(--card); box-shadow: 0 4px 14px var(--shadow); color: var(--accent-deep);
+    display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .nav-btn:active { transform: scale(0.94); }
+  .nav-btn svg { width: 24px; height: 24px; }
+
+  /* Segmented pill bar */
+  .pillbar { position: relative; display: flex; background: rgba(180,150,120,0.16);
+    border-radius: 16px; padding: 5px; margin: 8px 4px 4px; }
+  .pillbar .indicator { position: absolute; top: 5px; left: 5px; height: calc(100% - 10px);
+    width: calc(25% - 2.5px); background: #fff; border-radius: 12px; box-shadow: 0 2px 8px var(--shadow);
+    transition: transform 0.32s cubic-bezier(.34,1.4,.5,1); }
+  .pillbar button { position: relative; z-index: 1; flex: 1; border: none; background: transparent;
+    padding: 10px 2px; font-size: 13px; font-weight: 700; font-family: inherit; color: var(--ink-soft);
+    cursor: pointer; transition: color 0.25s ease; letter-spacing: -0.2px; }
+  .pillbar button.active { color: var(--ink); }
+
+  .cat-head { display: flex; align-items: center; gap: 10px; margin: 16px 4px 10px; }
+  .cat-dot { width: 12px; height: 12px; border-radius: 50%; }
+  .cat-title { font-size: 19px; font-weight: 700; }
+  .cat-progress { margin-left: auto; font-size: 13px; font-weight: 600; color: var(--ink-soft); }
+  .progress-track { height: 8px; border-radius: 5px; background: rgba(180,150,120,0.16); overflow: hidden; margin: 0 4px 4px; }
+  .progress-fill { height: 100%; width: 0%; border-radius: 5px; transition: width 0.5s cubic-bezier(.22,1,.36,1); }
+
+  ul#list { list-style: none; margin: 8px 0 0; padding: 0; flex: 1; min-height: 120px; }
+  li.task { display: flex; align-items: center; gap: 12px; background: var(--card); border-radius: 16px;
+    padding: 14px 8px 14px 14px; margin-bottom: 10px; box-shadow: 0 4px 14px var(--shadow);
+    transition: transform 0.15s ease, opacity 0.3s ease, box-shadow 0.2s ease;
+    animation: pop 0.26s cubic-bezier(.22,1,.36,1); }
+  @keyframes pop { from { transform: scale(0.96); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  li.task.dragging, li.cluster.dragging { box-shadow: 0 12px 30px rgba(180,150,120,0.4); opacity: 0.97; z-index: 5;
+    position: relative; cursor: grabbing; animation: none; transition: none; }
+
+  .check { flex: 0 0 auto; width: 26px; height: 26px; border-radius: 50%; border: 2.5px solid var(--cat,var(--accent));
+    position: relative; cursor: pointer; transition: background 0.25s ease; }
+  .check svg { position: absolute; inset: 0; width: 100%; height: 100%; stroke: #fff; stroke-width: 3.5;
+    fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 22; stroke-dashoffset: 22;
+    transition: stroke-dashoffset 0.3s ease 0.05s; }
+  .label { flex: 1; font-size: 16px; font-weight: 500; line-height: 1.3; cursor: pointer; word-break: break-word; transition: color 0.25s ease; }
+  .del { flex: 0 0 auto; width: 28px; height: 28px; border: none; background: transparent; color: var(--ink-soft);
+    opacity: 0.4; font-size: 18px; cursor: pointer; border-radius: 50%; }
+  .del:active { opacity: 1; background: rgba(180,150,120,0.12); }
+  .handle { flex: 0 0 auto; width: 32px; height: 38px; display: flex; align-items: center; justify-content: center;
+    cursor: grab; touch-action: none; color: var(--ink-soft); opacity: 0.5; }
+  .handle svg { width: 17px; height: 17px; }
+  li.done .check { background: var(--cat,var(--accent)); }
+  li.done .check svg { stroke-dashoffset: 0; }
+  li.done .label { color: var(--done); text-decoration: line-through; text-decoration-color: var(--done); }
+
+  /* Per-task grouping toggle */
+  .listtog { flex: 0 0 auto; width: 30px; height: 30px; border: none; background: transparent; color: var(--ink-soft);
+    opacity: 0.4; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 50%; }
+  .listtog svg { width: 18px; height: 18px; }
+  .listtog.on { color: var(--cat, var(--accent)); opacity: 1; }
+  .listtog:active { background: rgba(180,150,120,0.12); }
+
+  /* Cluster header */
+  li.cluster { display: flex; align-items: center; gap: 8px; background: transparent; box-shadow: none;
+    border: none; border-radius: 0; border-bottom: 2px solid var(--line); padding: 14px 6px 9px; margin: 4px 2px 8px;
+    animation: pop 0.26s cubic-bezier(.22,1,.36,1); }
+  li.cluster.dragging { background: var(--card); border-radius: 14px; border-bottom-color: transparent; }
+  .cluster .ctitle { flex: 1; font-size: 16px; font-weight: 700; color: var(--ink); cursor: pointer; word-break: break-word; }
+  .cluster .ccount { font-size: 12px; font-weight: 700; color: var(--ink-soft); }
+  .cluster .cdel { flex: 0 0 auto; width: 26px; height: 26px; border: none; background: transparent; color: var(--ink-soft);
+    opacity: 0.4; font-size: 17px; cursor: pointer; border-radius: 50%; }
+  .cluster .cdel:active { opacity: 1; background: rgba(180,150,120,0.12); }
+  .cluster .play { flex: 0 0 auto; width: 30px; height: 30px; border: none; background: transparent; color: var(--line);
+    display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .cluster .play svg { width: 13px; height: 13px; transition: transform 0.28s cubic-bezier(.34,1.4,.5,1); transform: rotate(90deg); }
+  .cluster.collapsed .play svg { transform: rotate(0deg); }
+  li.task.child { margin-left: 22px; }
+  li.is-hidden { display: none; }
+
+  .empty { text-align: center; color: var(--ink-soft); padding: 30px 20px; font-size: 15px; line-height: 1.5; }
+  .celebrate { text-align: center; font-size: 14px; font-weight: 700; color: var(--accent-deep);
+    height: 0; opacity: 0; overflow: hidden; transition: all 0.4s ease; }
+  .celebrate.show { height: 24px; opacity: 1; margin: 2px 0 4px; }
+
+  footer { position: sticky; bottom: 0; padding: 10px 0 calc(10px + env(safe-area-inset-bottom));
+    background: linear-gradient(to top, var(--bg2) 70%, transparent); }
+  .add-row { display: flex; gap: 8px; align-items: center; }
+  #newTask { flex: 1; border: none; background: var(--card); border-radius: 16px; padding: 14px 16px;
+    font-size: 16px; color: var(--ink); box-shadow: 0 4px 14px var(--shadow); outline: none; font-family: inherit; }
+  #newTask::placeholder { color: var(--ink-soft); }
+  button.round { flex: 0 0 auto; width: 50px; height: 50px; border-radius: 16px; border: none; color: #fff;
+    font-size: 25px; font-weight: 300; line-height: 1; cursor: pointer; box-shadow: 0 4px 14px var(--shadow);
+    display: flex; align-items: center; justify-content: center; }
+  button.round:active { transform: scale(0.94); }
+  button.round.ghost { background: var(--card); color: var(--cat, var(--accent)); }
+  button.round.ghost svg { width: 22px; height: 22px; }
+
+  /* Dashboard */
+  .dash { flex: 1; padding: 4px; }
+  .pie-wrap { display: flex; justify-content: center; margin: 6px 0 14px; }
+  .pie-wrap svg { width: 100%; max-width: 320px; height: auto; }
+  .legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 16px; margin-bottom: 18px; }
+  .legend span { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--ink-soft); }
+  .legend i { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+  .board { background: var(--card); border-radius: 18px; padding: 16px; box-shadow: 0 4px 14px var(--shadow); margin-bottom: 14px; }
+  .board h3 { margin: 0 0 12px; font-size: 15px; letter-spacing: -0.2px; }
+  .board h3 small { font-weight: 600; color: var(--ink-soft); font-size: 12px; }
+  .srow { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid rgba(180,150,120,0.14); }
+  .srow:first-of-type { border-top: none; }
+  .srow .sdot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; }
+  .srow .stext { flex: 1; font-size: 14px; font-weight: 500; }
+  .srow .sdays { font-size: 11px; font-weight: 600; color: var(--ink-soft); flex: 0 0 auto; }
+  .srow .spct { font-size: 14px; font-weight: 700; }
+  .minibar { height: 6px; width: 64px; border-radius: 4px; background: rgba(180,150,120,0.18); overflow: hidden; flex: 0 0 auto; }
+  .minibar i { display: block; height: 100%; border-radius: 4px; }
+  .dash-foot { text-align: center; padding: 8px 0 4px; }
+  .dash-foot a { color: var(--ink-soft); font-size: 13px; font-weight: 600; text-decoration: none; cursor: pointer; margin: 0 10px; }
+  .dash-foot a:active { color: var(--ink); }
+  .dash-foot .streak-chip { color: var(--accent-deep); font-size: 13px; font-weight: 700; margin: 0 10px; }
+
+  .hidden { display: none !important; }
+
+  /* Confirm sheet */
+  .overlay { position: fixed; inset: 0; background: rgba(61,53,46,0.35); backdrop-filter: blur(2px);
+    display: flex; align-items: flex-end; justify-content: center; opacity: 0; pointer-events: none;
+    transition: opacity 0.25s ease; z-index: 50; }
+  .overlay.show { opacity: 1; pointer-events: auto; }
+  .sheet { background: var(--bg1); width: 100%; max-width: 520px; border-radius: 24px 24px 0 0;
+    padding: 26px 22px calc(26px + env(safe-area-inset-bottom)); box-shadow: 0 -8px 40px rgba(0,0,0,0.18);
+    transform: translateY(100%); transition: transform 0.3s cubic-bezier(.22,1,.36,1); }
+  .overlay.show .sheet { transform: translateY(0); }
+  .sheet h2 { margin: 0 0 6px; font-size: 20px; }
+  .sheet p { margin: 0 0 22px; color: var(--ink-soft); font-size: 15px; line-height: 1.4; word-break: break-word; }
+  .sheet .q { color: var(--ink); font-weight: 600; }
+  .sheet-btn { width: 100%; padding: 16px; border: none; border-radius: 16px; font-size: 16px; font-weight: 700;
+    font-family: inherit; cursor: pointer; margin-bottom: 10px; }
+  .btn-delete { background: #E26D5C; color: #fff; } .btn-delete:active { background: #c85d4d; }
+  .btn-cancel { background: transparent; color: var(--ink-soft); } .btn-cancel:active { background: rgba(180,150,120,0.12); }
+</style>
+</head>
+<body>
+  <header>
+    <div>
+      <div class="date" id="date"></div>
+      <h1 class="greeting" id="greeting">Today</h1>
+    </div>
+    <button class="nav-btn" id="navBtn" aria-label="Toggle dashboard"></button>
+  </header>
+
+  <div class="pillbar" id="pillbar">
+    <div class="indicator" id="indicator"></div>
+  </div>
+
+  <!-- TASK VIEW -->
+  <div id="taskView">
+    <div class="cat-head">
+      <span class="cat-dot" id="catDot"></span>
+      <span class="cat-title" id="catTitle"></span>
+      <span class="cat-progress" id="catProgress"></span>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="catFill"></div></div>
+    <div class="celebrate" id="celebrate">✨ All done. Nice work.</div>
+    <ul id="list"></ul>
+  </div>
+
+  <!-- DASHBOARD VIEW -->
+  <div id="dashView" class="dash hidden"></div>
+
+  <footer id="footer">
+    <div class="add-row">
+      <input id="newTask" type="text" placeholder="Add a task…" autocomplete="off" enterkeyhint="done">
+      <button class="round ghost" id="clusterBtn" aria-label="New group"></button>
+      <button class="round" id="addBtn" aria-label="Add task">+</button>
+    </div>
+  </footer>
+
+  <div class="overlay" id="overlay">
+    <div class="sheet">
+      <h2 id="delTitle">Delete this task?</h2>
+      <p id="delBody"></p>
+      <button class="sheet-btn btn-delete" id="confirmDel">Delete</button>
+      <button class="sheet-btn btn-cancel" id="cancelDel">Cancel</button>
+    </div>
+  </div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const KEY = 'lifeBoard.v2';
+const CATS = [
+  { key:'health',   name:'Health',   color:'#57B894' },
+  { key:'grooming', name:'Grooming', color:'#4DAEC4' },
+  { key:'work',     name:'Work',     color:'#E8A04C' },
+  { key:'growth',   name:'Growth',   color:'#9B7BD4' },
+];
+function uid(){ return crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2)); }
+const mkTask = text => ({ id: uid(), kind: 'task', text, done: false, list: false });
+
+/* ---------- Time: habit-day rolls at 5:00 AM America/New_York ---------- */
+function etParts(date){
+  const f = new Intl.DateTimeFormat('en-US', { timeZone:'America/New_York',
+    year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', hourCycle:'h23' });
+  const p = {}; f.formatToParts(date).forEach(x => p[x.type] = x.value);
+  return { y:+p.year, m:+p.month, d:+p.day, h:+p.hour };
+}
+function habitDayKey(date = new Date()){
+  const { y, m, d, h } = etParts(date);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  if (h < 5) dt.setUTCDate(dt.getUTCDate() - 1);  // before 5 AM ET still belongs to yesterday
+  return dt.toISOString().slice(0, 10);
+}
+
+/* ---------- State ---------- */
+let state;
+try { state = JSON.parse(localStorage.getItem(KEY)); } catch { state = null; }
+if (!state || typeof state !== 'object' || Array.isArray(state) || typeof state.categories !== 'object') state = null;
+if (!state) {
+  state = { version:3, categories:{ health:[], grooming:[], work:[], growth:[] }, history:{}, lastReset:null, streak:0 };
+  try {                                            // migrate the old single-list app, if present
+    const o = JSON.parse(localStorage.getItem('dailyChecklist.v1') || 'null');
+    if (o && Array.isArray(o.tasks)) {
+      state.categories.health = o.tasks.map(t => mkTask(t.text));
+      if (typeof o.streak === 'number') state.streak = o.streak;
+    }
+  } catch {}
+  if (CATS.every(c => state.categories[c.key].length === 0)) {   // friendly first-run seed
+    state.categories.health   = ['Drink water','Workout','8h sleep'].map(mkTask);
+    state.categories.grooming = ['Shower','Skincare','Brush teeth'].map(mkTask);
+    state.categories.work     = ['Deep work block','Clear inbox'].map(mkTask);
+    state.categories.growth   = ['Read 20 min','Meditate'].map(mkTask);
+  }
+}
+CATS.forEach(c => {
+  if (!Array.isArray(state.categories?.[c.key])) { state.categories = state.categories || {}; state.categories[c.key] = []; }
+  state.categories[c.key].forEach(it => {                       // normalize every item to the current shape
+    if (it.kind === 'cluster') { if (typeof it.collapsed !== 'boolean') it.collapsed = false; if (typeof it.title !== 'string') it.title = it.text || 'Group'; }
+    else { it.kind = 'task'; if (typeof it.list !== 'boolean') it.list = false; }
+  });
+});
+if (!state.history) state.history = {};
+if (typeof state.streak !== 'number') state.streak = 0;
+
+function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
+if (navigator.storage && navigator.storage.persist) navigator.storage.persist();  // ask iOS not to evict
+
+const taskList = key => state.categories[key].filter(it => it.kind === 'task');   // tasks only, headers excluded
+
+/* ---------- Daily rollover ---------- */
+function dayTotals(){
+  let done = 0, total = 0;
+  CATS.forEach(c => taskList(c.key).forEach(t => { total++; if (t.done) done++; }));
+  return { done, total };
+}
+function snapshot(dayKey){
+  const per = {}, byCat = {}; let done = 0, total = 0;
+  CATS.forEach(c => {
+    let cd = 0; const arr = taskList(c.key);
+    arr.forEach(t => { per[t.id] = t.done ? 1 : 0; total++; if (t.done) { done++; cd++; } });
+    byCat[c.key] = { done: cd, total: arr.length };
+  });
+  if (total === 0) return;                          // a board with no tasks isn't a real day
+  state.history[dayKey] = { done, total, per, byCat };
+}
+function snapshotEmpty(dayKey){                      // a missed day: tasks existed, none were done
+  const per = {}, byCat = {}; let total = 0;
+  CATS.forEach(c => { const arr = taskList(c.key);
+    arr.forEach(t => { per[t.id] = 0; total++; }); byCat[c.key] = { done: 0, total: arr.length }; });
+  if (total > 0) state.history[dayKey] = { done: 0, total, per, byCat };
+}
+function pruneHistory(){
+  const keys = Object.keys(state.history).sort();
+  while (keys.length > 40) delete state.history[keys.shift()];
+}
+function keyToMs(k){ const [y, m, d] = k.split('-').map(Number); return Date.UTC(y, m - 1, d); }
+function nextKey(k){ return new Date(keyToMs(k) + 86400000).toISOString().slice(0, 10); }
+function daysBetween(a, b){ return Math.round((keyToMs(b) - keyToMs(a)) / 86400000); }
+function clearChecks(){ CATS.forEach(c => taskList(c.key).forEach(t => t.done = false)); }
+function rollIfNeeded(){
+  const today = habitDayKey();
+  if (!state.lastReset) { state.lastReset = today; save(); return false; }
+  if (state.lastReset === today) return false;
+  snapshot(state.lastReset);                         // close out the day that just ended (real checked state)
+  const { done, total } = dayTotals();
+  const gap = daysBetween(state.lastReset, today);
+  // a streak only survives across a single complete day; any absence (gap > 1) breaks it
+  state.streak = (gap === 1 && total > 0 && done === total) ? state.streak + 1 : 0;
+  let cursor = nextKey(state.lastReset), guard = 0;  // backfill missed days as all-incomplete so stats stay honest
+  while (cursor !== today && guard++ < 40) { snapshotEmpty(cursor); cursor = nextKey(cursor); }
+  clearChecks();                                     // tasks persist, checks clear
+  state.lastReset = today;
+  pruneHistory(); save();
+  return true;
+}
+
+/* ---------- View / nav ---------- */
+let activeCat = 0;
+let onDash = false;
+
+const ICON_CHART = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M12 3v9h9a9 9 0 0 0-9-9z"/></svg>';
+const ICON_LIST  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>';
+const HANDLE_SVG = '<svg viewBox="0 0 18 18" fill="currentColor"><circle cx="6" cy="4" r="1.6"/><circle cx="12" cy="4" r="1.6"/><circle cx="6" cy="9" r="1.6"/><circle cx="12" cy="9" r="1.6"/><circle cx="6" cy="14" r="1.6"/><circle cx="12" cy="14" r="1.6"/></svg>';
+const PLAY_SVG   = '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M5 3 L12.5 8 L5 13 Z"/></svg>';
+const LIST_BASE  = '<circle cx="3.5" cy="5" r="1.1" fill="currentColor" stroke="none"/><circle cx="3.5" cy="10" r="1.1" fill="currentColor" stroke="none"/><circle cx="3.5" cy="15" r="1.1" fill="currentColor" stroke="none"/><line x1="7.5" y1="5" x2="17" y2="5"/><line x1="7.5" y1="10" x2="17" y2="10"/><line x1="7.5" y1="15" x2="17" y2="15"/>';
+const LIST_ON_SVG  = '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">' + LIST_BASE + '</svg>';
+const LIST_OFF_SVG = '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">' + LIST_BASE + '<line x1="2.5" y1="17.5" x2="17.5" y2="2.5" stroke-width="1.6"/></svg>';
+
+function buildPillbar(){
+  const bar = $('pillbar');
+  CATS.forEach((c, i) => {
+    const b = document.createElement('button');
+    b.textContent = c.name;
+    b.onclick = () => { activeCat = i; onDash = false; render(); };
+    bar.appendChild(b);
+  });
+}
+
+function greet(){ const h = etParts(new Date()).h; return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'; }
+
+function render(){
+  rollIfNeeded();
+  $('date').textContent = new Date().toLocaleDateString(undefined, { weekday:'long', month:'long', day:'numeric' });
+  $('navBtn').innerHTML = onDash ? ICON_LIST : ICON_CHART;
+
+  $('pillbar').classList.toggle('hidden', onDash);
+  $('taskView').classList.toggle('hidden', onDash);
+  $('footer').classList.toggle('hidden', onDash);
+  $('dashView').classList.toggle('hidden', !onDash);
+
+  if (onDash) { $('greeting').textContent = 'Dashboard'; renderDash(); return; }
+  $('greeting').textContent = greet();
+
+  // pill indicator + active styling
+  $('indicator').style.transform = `translateX(${activeCat * 100}%)`;
+  [...$('pillbar').querySelectorAll('button')].forEach((b, i) => b.classList.toggle('active', i === activeCat));
+
+  renderList();
+}
+
+function renderList(){
+  const cat = CATS[activeCat];
+  const arr = state.categories[cat.key];
+  $('catDot').style.background = cat.color;
+  $('catTitle').textContent = cat.name;
+  document.documentElement.style.setProperty('--cat', cat.color);
+  $('addBtn').style.background = `linear-gradient(160deg, ${shade(cat.color,0.15)}, ${cat.color})`;
+
+  const tasks = arr.filter(it => it.kind === 'task');
+  const done = tasks.filter(t => t.done).length, total = tasks.length;
+  $('catProgress').textContent = total ? `${done}/${total}` : '';
+  $('catFill').style.width = (total ? done / total * 100 : 0) + '%';
+  $('catFill').style.background = `linear-gradient(90deg, ${shade(cat.color,0.2)}, ${cat.color})`;
+  $('celebrate').classList.toggle('show', total > 0 && done === total);
+
+  const list = $('list');
+  list.innerHTML = '';
+  if (arr.length === 0) { list.innerHTML = '<div class="empty">Nothing here yet.<br>Add a task below, or start a group.</div>'; return; }
+
+  // resolve roles: a list-ON task is grabbed by the cluster header above it (until the next header)
+  const rows = []; let current = null;
+  arr.forEach(it => {
+    if (it.kind === 'cluster') { current = { cluster: it, children: [] }; rows.push({ kind:'cluster', it, ctx: current }); }
+    else { const child = !!(it.list && current); if (child) current.children.push(it); rows.push({ kind:'task', it, child, parent: child ? current.cluster : null }); }
+  });
+  rows.forEach(row => list.appendChild(row.kind === 'cluster' ? clusterRow(row, cat) : taskRow(row, cat)));
+}
+
+function clusterRow(row, cat){
+  const c = row.it, n = row.ctx.children.length, dn = row.ctx.children.filter(t => t.done).length;
+  const li = document.createElement('li');
+  li.className = 'cluster' + (c.collapsed ? ' collapsed' : '');
+  li.dataset.id = c.id;
+  li.innerHTML =
+    '<span class="handle chandle" aria-label="Drag group">' + HANDLE_SVG + '</span>' +
+    '<span class="ctitle"></span>' +
+    `<span class="ccount">${n ? `${dn}/${n}` : ''}</span>` +
+    '<button class="cdel" aria-label="Delete group">×</button>' +
+    '<button class="play" aria-label="Expand or collapse">' + PLAY_SVG + '</button>';
+  li.querySelector('.ctitle').textContent = c.title;
+  li.querySelector('.ctitle').onclick = () => togglePlay(c, li);
+  li.querySelector('.play').onclick = () => togglePlay(c, li);
+  li.querySelector('.cdel').onclick = e => { e.stopPropagation(); askDeleteCluster(cat.key, c); };
+  li.querySelector('.chandle').addEventListener('pointerdown', e => startDrag(e, li));
+  return li;
+}
+
+function togglePlay(c, li){                            // collapse/expand in place so the arrow animates
+  c.collapsed = !c.collapsed; save();
+  li.classList.toggle('collapsed', c.collapsed);
+  let sib = li.nextElementSibling;
+  while (sib && !sib.classList.contains('cluster')) {
+    if (sib.dataset.parent === c.id) sib.classList.toggle('is-hidden', c.collapsed);
+    sib = sib.nextElementSibling;
+  }
+}
+
+function taskRow(row, cat){
+  const t = row.it;
+  const li = document.createElement('li');
+  let cls = 'task' + (t.done ? ' done' : '');
+  if (row.child) { cls += ' child'; if (row.parent.collapsed) cls += ' is-hidden'; }
+  li.className = cls;
+  li.dataset.id = t.id;
+  if (row.child) li.dataset.parent = row.parent.id;
+  li.innerHTML =
+    '<span class="check"><svg viewBox="0 0 28 28"><path d="M7 14.5 l4.5 4.5 L21 9"/></svg></span>' +
+    '<span class="label"></span>' +
+    '<button class="listtog' + (t.list ? ' on' : '') + '" aria-label="Toggle grouping">' + (t.list ? LIST_ON_SVG : LIST_OFF_SVG) + '</button>' +
+    '<button class="del" aria-label="Delete">×</button>' +
+    '<span class="handle" aria-label="Drag to reorder">' + HANDLE_SVG + '</span>';
+  li.querySelector('.label').textContent = t.text;
+  const toggle = () => { t.done = !t.done; save(); render(); };
+  li.querySelector('.check').onclick = toggle;
+  li.querySelector('.label').onclick = toggle;
+  li.querySelector('.listtog').onclick = e => { e.stopPropagation(); t.list = !t.list; save(); render(); };
+  li.querySelector('.del').onclick = e => { e.stopPropagation(); askDelete(cat.key, t); };
+  li.querySelector('.handle').addEventListener('pointerdown', e => startDrag(e, li));
+  return li;
+}
+
+/* ---------- Drag to reorder (tasks + headers, within active category) ---------- */
+let dragEl = null, baseY = 0;
+function startDrag(e, li){
+  e.preventDefault();
+  dragEl = li; baseY = e.clientY;
+  li.classList.add('dragging');
+  const h = e.currentTarget;
+  h.setPointerCapture(e.pointerId);
+  h.addEventListener('pointermove', onDragMove);
+  h.addEventListener('pointerup', endDrag);
+  h.addEventListener('pointercancel', endDrag);
+}
+function visSib(el, dir){ let s = el[dir]; while (s && (s.classList.contains('is-hidden') || !s.dataset.id)) s = s[dir]; return s; }
+function rebaseInsert(el, ref, e){                     // move in DOM, keep the element under the finger (height-agnostic)
+  const before = el.getBoundingClientRect().top;
+  $('list').insertBefore(el, ref);
+  const after = el.getBoundingClientRect().top;
+  baseY += after - before;
+  el.style.transform = `translateY(${e.clientY - baseY}px)`;
+}
+function onDragMove(e){
+  if (!dragEl) return;
+  e.preventDefault();
+  dragEl.style.transform = `translateY(${e.clientY - baseY}px)`;
+  const r = dragEl.getBoundingClientRect(), center = r.top + r.height / 2;
+  const prev = visSib(dragEl, 'previousElementSibling');
+  if (prev) { const pr = prev.getBoundingClientRect();
+    if (center < pr.top + pr.height / 2) { rebaseInsert(dragEl, prev, e); return; } }
+  const next = visSib(dragEl, 'nextElementSibling');
+  if (next) { const nr = next.getBoundingClientRect();
+    if (center > nr.top + nr.height / 2) { rebaseInsert(dragEl, next.nextElementSibling, e); } }
+}
+function endDrag(e){
+  if (!dragEl) return;
+  const h = e.currentTarget;
+  h.removeEventListener('pointermove', onDragMove);
+  h.removeEventListener('pointerup', endDrag);
+  h.removeEventListener('pointercancel', endDrag);
+  dragEl.classList.remove('dragging'); dragEl.style.transform = '';
+  dragEl = null;
+  const order = [...$('list').children].map(el => el.dataset.id).filter(Boolean);
+  const arr = state.categories[CATS[activeCat].key];
+  arr.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+  save(); render();                                   // re-render so membership + indent reflect the new position
+}
+
+/* ---------- Delete confirm (tasks and groups) ---------- */
+let pendingDelete = null;
+function askDelete(catKey, t){
+  pendingDelete = { catKey, id: t.id };
+  $('delTitle').textContent = 'Delete this task?';
+  $('delBody').innerHTML = 'Are you sure you want to delete <span class="q">“' + escapeHtml(t.text) + '”</span>?';
+  $('overlay').classList.add('show');
+}
+function askDeleteCluster(catKey, c){
+  pendingDelete = { catKey, id: c.id };
+  $('delTitle').textContent = 'Delete this group?';
+  $('delBody').innerHTML = '<span class="q">“' + escapeHtml(c.title) + '”</span> will be removed. Its tasks stay — they just become ungrouped.';
+  $('overlay').classList.add('show');
+}
+function closeSheet(){ $('overlay').classList.remove('show'); pendingDelete = null; }
+$('confirmDel').onclick = () => {
+  if (pendingDelete) { const a = state.categories[pendingDelete.catKey];
+    state.categories[pendingDelete.catKey] = a.filter(x => x.id !== pendingDelete.id); save(); render(); }
+  closeSheet();
+};
+$('cancelDel').onclick = closeSheet;
+$('overlay').addEventListener('click', e => { if (e.target === $('overlay')) closeSheet(); });
+
+/* ---------- Add task / add group ---------- */
+function addTask(){
+  const inp = $('newTask'); const text = inp.value.trim(); if (!text) return;
+  state.categories[CATS[activeCat].key].push(mkTask(text));
+  inp.value = ''; save(); render(); inp.focus();
+}
+function addCluster(){
+  const inp = $('newTask'); const title = inp.value.trim();
+  if (!title) { inp.placeholder = 'Type a group name, then tap the list icon'; inp.focus(); return; }
+  state.categories[CATS[activeCat].key].push({ id: uid(), kind: 'cluster', title, collapsed: false });
+  inp.value = ''; save(); render(); inp.focus();
+}
+$('addBtn').onclick = addTask;
+$('clusterBtn').onclick = addCluster;
+$('newTask').addEventListener('keydown', e => { if (e.key === 'Enter') addTask(); });
+$('navBtn').onclick = () => { onDash = !onDash; render(); };
+
+/* ---------- Color helper ---------- */
+function shade(hex, t){                              // lighten hex toward white by t (0..1)
+  const n = parseInt(hex.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+  const mix = v => Math.round(v + (255 - v) * t);
+  return `rgb(${mix(r)},${mix(g)},${mix(b)})`;
+}
+
+/* ---------- Dashboard: pie + scoreboards ---------- */
+function polar(cx, cy, r, deg){ const a = (deg - 90) * Math.PI / 180; return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; }
+function wedge(cx, cy, r, a0, a1){
+  const [x0, y0] = polar(cx, cy, r, a0), [x1, y1] = polar(cx, cy, r, a1);
+  const large = (a1 - a0) > 180 ? 1 : 0;
+  return `M${cx} ${cy} L${x0.toFixed(2)} ${y0.toFixed(2)} A${r} ${r} 0 ${large} 1 ${x1.toFixed(2)} ${y1.toFixed(2)} Z`;
+}
+function buildPie(){
+  const cx = 100, cy = 100, R = 92;
+  let slices = '', sep = '', spokes = '';
+  CATS.forEach((c, ci) => {
+    const tasks = taskList(c.key), n = tasks.length;
+    const base = ci * 90;
+    if (n > 0) {
+      const step = 90 / n;
+      tasks.forEach((t, j) => {
+        const a0 = base + j * step, a1 = base + (j + 1) * step;
+        if (t.done) {
+          const sh = shade(c.color, n > 1 ? (j / (n - 1)) * 0.5 : 0);
+          slices += `<path d="${wedge(cx, cy, R, a0, a1)}" fill="${sh}"/>`;
+        }
+        if (j > 0) { const [x, y] = polar(cx, cy, R, a0); sep += `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(2)}" y2="${y.toFixed(2)}" stroke="rgba(180,150,120,0.35)" stroke-width="1"/>`; }
+      });
+    }
+    const [sx, sy] = polar(cx, cy, R, base);          // black quadrant divider
+    spokes += `<line x1="${cx}" y1="${cy}" x2="${sx.toFixed(2)}" y2="${sy.toFixed(2)}" stroke="#3D352E" stroke-width="2"/>`;
+  });
+  const { done, total } = dayTotals();
+  const areaFrac = CATS.reduce((s, c) => { const a = taskList(c.key), tot = a.length;
+    return s + (tot ? a.filter(t => t.done).length / tot : 0); }, 0) / CATS.length;
+  const pct = Math.round(areaFrac * 100);            // matches the actual filled area of the wheel
+  return `<svg viewBox="0 0 200 200" role="img" aria-label="Completion pie chart">
+    <circle cx="${cx}" cy="${cy}" r="${R}" fill="#fff"/>
+    ${slices}${sep}${spokes}
+    <circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="#3D352E" stroke-width="3"/>
+    <text x="100" y="96" text-anchor="middle" font-size="30" font-weight="700" fill="#3D352E">${pct}%</text>
+    <text x="100" y="116" text-anchor="middle" font-size="12" font-weight="600" fill="#9B8E80">${done} of ${total} today</text>
+  </svg>`;
+}
+function thirtyDayStats(){
+  const keys = Object.keys(state.history).sort().slice(-30);
+  const agg = {};                                   // id -> {appear, done}
+  keys.forEach(k => { const per = (state.history[k] && state.history[k].per) || {};
+    Object.entries(per).forEach(([id, v]) => { const s = agg[id] || (agg[id] = { appear:0, done:0 }); s.appear++; s.done += v; }); });
+  const lookup = {};
+  CATS.forEach(c => taskList(c.key).forEach(t => lookup[t.id] = { text: t.text, color: c.color }));
+  const rows = [];
+  Object.entries(agg).forEach(([id, s]) => { if (lookup[id] && s.appear > 0)
+    rows.push({ ...lookup[id], pct: Math.round(s.done / s.appear * 100), appear: s.appear, done: s.done }); });
+  rows.sort((a, b) => b.pct - a.pct || b.appear - a.appear);
+  return { rows, days: keys.length };
+}
+function scoreRow(r){
+  return `<div class="srow"><span class="sdot" style="background:${r.color}"></span>
+    <span class="stext">${escapeHtml(r.text)}</span>
+    <span class="sdays">${r.done}/${r.appear}d</span>
+    <span class="minibar"><i style="width:${r.pct}%;background:${r.color}"></i></span>
+    <span class="spct" style="color:${r.color}">${r.pct}%</span></div>`;
+}
+function escapeHtml(s){ return s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function renderDash(){
+  const { rows, days } = thirtyDayStats();
+  const minSample = Math.min(days, 3);              // a task needs a few logged days before it's rankable
+  const eligible = rows.filter(r => r.appear >= minSample);
+  const ranked = eligible.length >= 2 ? eligible : rows;
+  const legend = CATS.map(c => `<span><i style="background:${c.color}"></i>${c.name}</span>`).join('');
+  let boards = '';
+  if (ranked.length < 2) {
+    boards = `<div class="board"><h3>30-day scoreboard</h3><div class="empty" style="padding:14px 4px">Finish a day or two and your most- and least-consistent tasks will show up here.</div></div>`;
+  } else {
+    const top = ranked.slice(0, 5);
+    const bottom = ranked.slice(-5).reverse();
+    boards =
+      `<div class="board"><h3>Most consistent <small>· last ${days} day${days===1?'':'s'}</small></h3>${top.map(scoreRow).join('')}</div>` +
+      `<div class="board"><h3>Needs love <small>· last ${days} day${days===1?'':'s'}</small></h3>${bottom.map(scoreRow).join('')}</div>`;
+  }
+  const streakLine = state.streak > 0 ? `<span class="streak-chip">🔥 ${state.streak} day streak</span>` : '';
+  $('dashView').innerHTML =
+    `<div class="pie-wrap">${buildPie()}</div>
+     <div class="legend">${legend}</div>
+     ${boards}
+     <div class="dash-foot">${streakLine}<a id="resetToday">Uncheck all today</a><a id="exportBtn">Export backup</a></div>`;
+  $('resetToday').onclick = () => {                  // pure mid-day undo — no snapshot, no streak change
+    if (!confirm('Uncheck everything for today? Your streak and history stay untouched.')) return;
+    clearChecks(); save(); render();
+  };
+  $('exportBtn').onclick = () => {
+    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = 'lifeboard-backup-' + habitDayKey() + '.json'; a.click(); URL.revokeObjectURL(a.href);
+  };
+}
+
+/* ---------- Boot + live rollover ---------- */
+buildPillbar();
+$('clusterBtn').innerHTML = LIST_ON_SVG;
+render();
+setInterval(() => { if (!dragEl && rollIfNeeded()) render(); }, 30000);      // catch 5 AM while open (never mid-drag)
+document.addEventListener('visibilitychange', () => { if (!document.hidden && !dragEl && rollIfNeeded()) render(); });
+</script>
+</body>
+</html>
